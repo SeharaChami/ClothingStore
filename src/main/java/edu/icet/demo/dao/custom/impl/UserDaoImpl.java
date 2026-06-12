@@ -1,120 +1,107 @@
 package edu.icet.demo.dao.custom.impl;
 
 import edu.icet.demo.dao.custom.UserDao;
+import edu.icet.demo.entity.UserEntity;
+import edu.icet.demo.util.HibernateUtil;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import org.example.dao.custom.UserDao;
-import org.example.entity.UserEntity;
-import org.example.util.HibernateUtil;
 import org.hibernate.Session;
-import org.hibernate.query.Query;
+import org.hibernate.Transaction;
 
-import java.sql.SQLException;
-import java.util.List;
-public class UserDaoImpl<UserEntity> implements UserDao {
+public class UserDaoImpl implements UserDao {
 
-
-        public String getLatestId(){
-            Session session = HibernateUtil.getSession();
-            session.getTransaction().begin();
-
-            Query query = session.createQuery("SELECT id FROM user ORDER BY id DESC LIMIT 1");
-            String id = (String) query.uniqueResult();
-            session.close();
-            return id;
+    @Override
+    public UserEntity search(String id) {
+        try (Session session = HibernateUtil.getSession()) {
+            return session.get(UserEntity.class, id);
         }
-        public UserEntity searchById(String id){
-            Session session = HibernateUtil.getSession();
-            session.getTransaction();
+    }
 
-            Query query = session.createQuery("FROM user WHERE id=:id");
-            query.setParameter("id",id);
-            UserEntity userEntity = (UserEntity) query.uniqueResult();
-            session.close();
-            return userEntity;
+    @Override
+    public UserEntity searchByUsernameOrEmail(String usernameOrEmail) {
+        try (Session session = HibernateUtil.getSession()) {
+            return session.createQuery(
+                            "FROM UserEntity u WHERE lower(u.name) = :v OR lower(u.email) = :v",
+                            UserEntity.class)
+                    .setParameter("v", usernameOrEmail.toLowerCase())
+                    .setMaxResults(1)
+                    .uniqueResult();
         }
+    }
 
-        @Override
-        public <UserEntity> UserEntity search(String s){
-
-            Session session = HibernateUtil.getSession();
-            session.getTransaction().begin();
-
-            Query query = session.createQuery("FROM user WHERE email=:email");
-            query.setParameter("email",s);
-            UserEntity userEntity = (UserEntity) query.uniqueResult();
-            session.close();
-            return userEntity;
+    @Override
+    public long count() {
+        try (Session session = HibernateUtil.getSession()) {
+            Long count = session.createQuery("SELECT count(u) FROM UserEntity u", Long.class)
+                    .uniqueResult();
+            return count == null ? 0 : count;
         }
+    }
 
-        @Override
-        public <UserEntity> ObservableList<UserEntity> searchAll(){
-
-            Session session = HibernateUtil.getSession();
-            session.getTransaction().begin();
-            List<UserEntity> userList = session.createQuery("FROM user").list();
-            ObservableList<UserEntity> list= FXCollections.observableArrayList();
-            session.close();
-            userList.forEach(userEntity -> {
-                list.add(userEntity);
-            });
-            return list;
-
+    @Override
+    public String getLatestId() {
+        try (Session session = HibernateUtil.getSession()) {
+            return session.createQuery("SELECT u.id FROM UserEntity u ORDER BY u.id DESC", String.class)
+                    .setMaxResults(1)
+                    .uniqueResult();
         }
+    }
 
-        @Override
-        public boolean insert(UserEntity userEntity){
+    @Override
+    public ObservableList<UserEntity> searchAll() {
+        try (Session session = HibernateUtil.getSession()) {
+            return FXCollections.observableArrayList(
+                    session.createQuery("FROM UserEntity", UserEntity.class).list());
+        }
+    }
 
-            Session session = HibernateUtil.getSession();
-            session.getTransaction().begin();
+    @Override
+    public boolean insert(UserEntity userEntity) {
+        Session session = HibernateUtil.getSession();
+        Transaction tx = session.beginTransaction();
+        try {
             session.persist(userEntity);
-            session.getTransaction().commit();
-            session.close();
+            tx.commit();
             return true;
-        }
-
-        public boolean update(String email,String password){
-
-            Session session = HibernateUtil.getSession();
-            session.getTransaction().begin();
-            Query query = session.createQuery("UPDATE user SET password =:p WHERE email =:e");
-            query.setParameter("p",password);
-            query.setParameter("e",email);
-            int i = query.executeUpdate();
-            System.out.println(i);
-
-            session.getTransaction().commit();
+        } catch (RuntimeException e) {
+            tx.rollback();
+            throw e;
+        } finally {
             session.close();
-            return i>0;
         }
-        @Override
-        public boolean update(UserEntity userEntity){
-            Session session = HibernateUtil.getSession();
-            session.getTransaction().begin();
-            Query query = session.createQuery("UPDATE user " +
-                    "SET name =:name,address =:address,email =:email WHERE id =:id");
-            query.setParameter("name",userEntity.getName());
-            query.setParameter("address",userEntity.getAddress());
-            query.setParameter("email",userEntity.getEmail());
-            query.setParameter("id",userEntity.getId());
+    }
 
-            int i = query.executeUpdate();
-            session.getTransaction().commit();
+    @Override
+    public boolean update(UserEntity userEntity) {
+        Session session = HibernateUtil.getSession();
+        Transaction tx = session.beginTransaction();
+        try {
+            session.merge(userEntity);
+            tx.commit();
+            return true;
+        } catch (RuntimeException e) {
+            tx.rollback();
+            throw e;
+        } finally {
             session.close();
-
-            return i>0;
         }
+    }
 
-        @Override
-        public boolean delete(String id) {
-
-            Session session = HibernateUtil.getSession();
-            session.getTransaction().begin();
-            Query query = session.createQuery("DELETE FROM user WHERE id=:id");
-            query.setParameter("id",id);
-            int i = query.executeUpdate();
-            session.getTransaction().commit();
+    @Override
+    public boolean delete(String id) {
+        Session session = HibernateUtil.getSession();
+        Transaction tx = session.beginTransaction();
+        try {
+            int affected = session.createMutationQuery("DELETE FROM UserEntity u WHERE u.id = :id")
+                    .setParameter("id", id)
+                    .executeUpdate();
+            tx.commit();
+            return affected > 0;
+        } catch (RuntimeException e) {
+            tx.rollback();
+            throw e;
+        } finally {
             session.close();
-            return i>0;
         }
-    }}
+    }
+}

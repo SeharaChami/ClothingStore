@@ -1,5 +1,6 @@
 package edu.icet.demo.entity;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
@@ -12,17 +13,21 @@ import lombok.Setter;
 @Getter
 @AllArgsConstructor
 @NoArgsConstructor
-@Entity(name = "customer")
+@Entity
 @Table(name = "customer")
 public class CustomerEntity {
 
+    @Id
+    private String id;
 
+    @Column(nullable = false)
+    private String name;
 
-        @Id
-        private String id;
-        private String name;
-        private String email;
-        private String address;
-        private String empId;
-    }
+    private String email;
 
+    private String address;
+
+    /** Id of the staff member who registered this customer. */
+    @Column(name = "emp_id")
+    private String empId;
+}

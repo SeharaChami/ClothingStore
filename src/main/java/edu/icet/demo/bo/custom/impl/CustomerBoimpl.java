@@ -1,91 +1,68 @@
 package edu.icet.demo.bo.custom.impl;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.icet.demo.bo.custom.CustomerBo;
-import edu.icet.demo.dao.custom.impl.CustomerDaoImpl;
+import edu.icet.demo.dao.DaoFactory;
+import edu.icet.demo.dao.custom.CustomerDao;
 import edu.icet.demo.entity.CustomerEntity;
+import edu.icet.demo.model.Customer;
+import edu.icet.demo.util.DaoType;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 
 public class CustomerBoimpl implements CustomerBo {
 
+    private final CustomerDao customerDao = DaoFactory.getInstance().getDao(DaoType.CUSTOMER);
+    private final ObjectMapper mapper = new ObjectMapper();
 
-        CustomerDaoImpl customerDaoImpl = DaoFactory.getInstance().getDao(DaoType.CUSTOMER);
-
-        public String generateCustomerId(){
-
-            String lastCustomerId = customerDaoImpl.getLatestId();
-            if (lastCustomerId==null){
-                return "C0001";
-            }
-            int number = Integer.parseInt(lastCustomerId.split("C")[1]);
-            number++;
-            return String.format("C%04d", number);
+    @Override
+    public String generateCustomerId() {
+        String lastCustomerId = customerDao.getLatestId();
+        if (lastCustomerId == null) {
+            return "C0001";
         }
+        int number = Integer.parseInt(lastCustomerId.substring(1));
+        return String.format("C%04d", number + 1);
+    }
 
-        public boolean insertCustomer(Customer customer) {
+    @Override
+    public boolean insertCustomer(Customer customer) {
+        return customerDao.insert(mapper.convertValue(customer, CustomerEntity.class));
+    }
 
-            CustomerEntity customerEntity = new ObjectMapper().convertValue(customer, CustomerEntity.class);
+    @Override
+    public ObservableList<Customer> getAllCustomers() {
+        ObservableList<Customer> customers = FXCollections.observableArrayList();
+        customerDao.searchAll().forEach(entity ->
+                customers.add(mapper.convertValue(entity, Customer.class)));
+        return customers;
+    }
 
-            return  customerDaoImpl.insert(customerEntity);
+    @Override
+    public ObservableList<String> getAllCustomerIds() {
+        ObservableList<String> ids = FXCollections.observableArrayList();
+        customerDao.searchAll().forEach(entity -> ids.add(entity.getId()));
+        return ids;
+    }
 
-        }
+    @Override
+    public Customer getCustomerById(String id) {
+        CustomerEntity entity = customerDao.search(id);
+        return entity == null ? null : mapper.convertValue(entity, Customer.class);
+    }
 
-        public ObservableList<Customer> getAllCustomer() {
-            ObservableList<CustomerEntity> customerEntities = customerDaoImpl.searchAll();
+    @Override
+    public boolean updateCustomer(Customer customer) {
+        return customerDao.update(mapper.convertValue(customer, CustomerEntity.class));
+    }
 
-            ObservableList<Customer> customerList = FXCollections.observableArrayList();
+    @Override
+    public boolean deleteCustomerById(String id) {
+        return customerDao.delete(id);
+    }
 
-            customerEntities.forEach(customerEntity -> {
-                customerList.add(new ObjectMapper().convertValue(customerEntity, Customer.class));
-            });
-            return customerList;
-        }
-
-        public boolean isValidEmail(String email){
-            String regex = "^[\\w-_\\.+]*[\\w-_\\.]\\@([\\w]+\\.)+[\\w]+[\\w]$";
-            return email.matches(regex);
-        }
-
-        public Customer getUserById(String id) {
-            CustomerEntity customerEntity = customerDaoImpl.search(id);
-
-            return new ObjectMapper().convertValue(customerEntity, Customer.class);
-        }
-
-        public ObservableList<String> getAllCustomerIds(String id) {
-            ObservableList<CustomerEntity> customerEntities = customerDaoImpl.searchAllByEmpId(id);
-            ObservableList<String> idList = FXCollections.observableArrayList();
-
-            customerEntities.forEach(customerEntity -> {
-                idList.add(customerEntity.getId());
-            });
-            return idList;
-        }
-
-        public boolean updateCustomer(Customer customer) {
-            return customerDaoImpl.update(new ObjectMapper().convertValue(customer, CustomerEntity.class));
-        }
-
-        public boolean deleteCustomerById(String id) {
-            return customerDaoImpl.delete(id);
-        }
-
-        public ObservableList<Customer> getAllCustomerByEmpId(String id) {
-            ObservableList<CustomerEntity> customerEntities = customerDaoImpl.getCustomersByEmpId(id);
-            ObservableList<Customer> customers = FXCollections.observableArrayList();
-            customerEntities.forEach(customerEntity -> {
-                customers.add(new ObjectMapper().convertValue(customerEntity, Customer.class));
-            });
-            return customers;
-        }
-
-        public ObservableList<String> getAllCustomerId() {
-            ObservableList<CustomerEntity> customerEntities = customerDaoImpl.searchAll();
-            ObservableList<String> idList = FXCollections.observableArrayList();
-            customerEntities.forEach(customerEntity -> {
-                idList.add(customerEntity.getId());
-            });
-            return idList;
-        }
+    @Override
+    public boolean isValidEmail(String email) {
+        return email != null && email.matches("^[\\w.+-]+@([\\w-]+\\.)+[\\w-]{2,}$");
     }
 }
