@@ -1,4 +1,6 @@
 package edu.icet.demo.entity;
+
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
@@ -13,13 +15,23 @@ import java.util.Date;
 @Getter
 @AllArgsConstructor
 @NoArgsConstructor
-@Entity(name = "order_table")
-@Table(name = "order_table")
+@Entity
+@Table(name = "orders")
 public class OrderEntity {
+
+    @Id
     private String id;
+
+    @Column(name = "cus_id")
     private String cusId;
+
     private String status;
+
     private Date date;
+
     private double amount;
+
+    /** Staff member who placed the order. */
+    @Column(name = "emp_id")
     private String empId;
 }
